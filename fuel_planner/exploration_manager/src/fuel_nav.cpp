@@ -22,7 +22,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #define VELOCITY2D_CONTROL 0b101111000111 //设置好对应的掩码，从右往左依次对应PX/PY/PZ/VX/VY/VZ/AX/AY/AZ/FORCE/YAW/YAW-RATE
 //设置掩码时注意要用的就加上去，用的就不加，这里是用二进制表示，我需要用到VX/VY/VZ/YAW，所以这四个我给0，其他都是1.
-#define VELOCITY2DHGT_CONTROL 0b101111100011
+#define VELOCITY2DHGT_CONTROL 0b101111000011
 class Ctrl
 {
     public:
@@ -45,24 +45,35 @@ class Ctrl
         geometry_msgs::PoseStamped target_pos;
         mavros_msgs::State current_state;
         float position_x, position_y, position_z, now_x, now_y, now_z, now_yaw, current_yaw, targetpos_x, targetpos_y;
-        float flight_height = 0.8;
+        float flight_height;
         float ego_pos_x, ego_pos_y, ego_pos_z, ego_vel_x, ego_vel_y, ego_vel_z, ego_a_x, ego_a_y, ego_a_z, ego_yaw, ego_yaw_rate; //EGO planner information has position velocity acceleration yaw yaw_dot
         bool receive, get_now_pos;//触发轨迹的条件判断
         ros::Subscriber state_sub, twist_sub, target_sub, position_sub;
         ros::Publisher local_pos_pub, pubMarker;
         ros::Timer timer;
+
+        // 
+        float normalizeAngle(float angle);
+        float limitAngleChange(float current, float target, float max_change);
+        const float MAX_YAW_CHANGE_DEG = 20.0; // Maximum allowed yaw change per control cycle (degrees)
+        const float MAX_YAW_CHANGE = MAX_YAW_CHANGE_DEG * M_PI / 180.0;  // Convert to radians
+
 };
 Ctrl::Ctrl()
 {
     timer = nh.createTimer(ros::Duration(0.02), &Ctrl::control, this);
     state_sub = nh.subscribe("/mavros/state", 10, &Ctrl::state_cb, this);
     position_sub=nh.subscribe("/mavros/local_position/odom", 10, &Ctrl::position_cb, this);
-    target_sub = nh.subscribe("move_base_simple/goal", 10, &Ctrl::target_cb, this);
+    target_sub = nh.subscribe("/move_base_simple/goal", 10, &Ctrl::target_cb, this);
     twist_sub = nh.subscribe("/planning/pos_cmd", 10, &Ctrl::twist_cb, this);
     local_pos_pub = nh.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
     pubMarker = nh.advertise<visualization_msgs::Marker>("/track_drone_point", 5);
     get_now_pos = false;
     receive = false;
+
+    // Load parameter reading at the start of constructor
+    nh.param<float>("/fuel_nav/flight_height", flight_height, 0.8);
+    ROS_INFO("Load flight_height: %.2f m", flight_height);
 }
 void Ctrl::state_cb(const mavros_msgs::State::ConstPtr& msg)
 {
@@ -123,20 +134,39 @@ void Ctrl::twist_cb(const quadrotor_msgs::PositionCommand::ConstPtr& msg)//ego�
 	ego_yaw_rate = ego.yaw_dot;
 }
 
+float Ctrl::normalizeAngle(float angle)
+{
+    while (angle > M_PI)
+        angle -= 2.0 * M_PI;
+    while (angle < -M_PI)
+        angle += 2.0 * M_PI;
+    return angle;
+}
+
+float Ctrl::limitAngleChange(float current, float target, float max_change)
+{
+    float delta = normalizeAngle(target - current);
+    if (std::fabs(delta) > max_change) {
+        delta = (delta > 0) ? max_change : -max_change;
+        ROS_WARN("EGO_yaw is too large");
+    }
+    return normalizeAngle(current + delta);
+}
+
 void Ctrl::control(const ros::TimerEvent&)
 {
     if(!receive) //如果没有在rviz上打点，则offboard模式下会保持在1m的高度
     {
         current_goal.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;
         current_goal.header.stamp = ros::Time::now();
-        // current_goal.type_mask = velocity_mask;
-        current_goal.type_mask = velocity_height_mask;
-        current_goal.velocity.x = (now_x - position_x)*1;;
-        current_goal.velocity.y = (now_y - position_y)*1;;
-        // current_goal.velocity.z = (1 - position_z)*1;
-        current_goal.position.z = flight_height;
+        current_goal.type_mask = velocity_mask;
+        // current_goal.type_mask = velocity_height_mask;
+        current_goal.velocity.x = (now_x - position_x)*1;
+        current_goal.velocity.y = (now_y - position_y)*1;
+        current_goal.velocity.z = (flight_height - position_z)*1;
+        // current_goal.position.z = flight_height;
         current_goal.yaw = now_yaw;
-        ROS_INFO("请等待");
+        ROS_INFO_THROTTLE(1.0, "Wait for planning target");
     }
 
     //if receive plan in rviz, the EGO plan information can input mavros and vehicle can auto navigation
@@ -145,28 +175,32 @@ void Ctrl::control(const ros::TimerEvent&)
         current_goal.coordinate_frame = mavros_msgs::PositionTarget::FRAME_LOCAL_NED;//选择local系，一定要local系
         current_goal.header.stamp = ros::Time::now();
         current_goal.type_mask = velocity_mask;//这个就算对应的掩码设置，可以看mavros_msgs::PositionTarget消息格式
-        current_goal.velocity.x =  0.5 * ego_vel_x + (ego_pos_x - position_x)*1;
+        // current_goal.type_mask = velocity_height_mask;
+        current_goal.velocity.x = 0.5 * ego_vel_x + (ego_pos_x - position_x)*1;
         if (std::fabs(current_goal.velocity.x) > 1.0) {
-            ROS_WARN("EGO_X 速度过大");
+            ROS_WARN("EGO_X vel is too large");
             current_goal.velocity.x = 0.0;
         }
         current_goal.velocity.y =  0.5 * ego_vel_y + (ego_pos_y - position_y)*1;
         if (std::fabs(current_goal.velocity.y) > 1.0) {
-            ROS_WARN("EGO_Y 速度过大");
+            ROS_WARN("EGO_Y vel is too large");
             current_goal.velocity.y = 0.0;
         }
-        // current_goal.velocity.z =  (ego_pos_z - position_z)*1;
-        current_goal.position.z = flight_height;
+        current_goal.velocity.z = (ego_pos_z - position_z) * 0.8;
+        // current_goal.position.z = flight_height;
+
         // current_goal.yaw = ego_yaw;
-        current_goal.yaw = now_yaw;
-        ROS_INFO("EGO规划速度：vel_x = %.2f", sqrt(pow(current_goal.velocity.x, 2)+pow(current_goal.velocity.y, 2)));
+        // current_goal.yaw = current_yaw;
+        current_goal.yaw = limitAngleChange(current_yaw, ego_yaw, MAX_YAW_CHANGE);
+
+        ROS_INFO_THROTTLE(0.5, "EGO vel: %.2f", sqrt(pow(current_goal.velocity.x, 2)+pow(current_goal.velocity.y, 2)));
     }
     local_pos_pub.publish(current_goal);
 }
 
 int main(int argc, char **argv)
 {
-	ros::init(argc, argv, "cxr_egoctrl_v1");
+	ros::init(argc, argv, "egoctrl");
 	setlocale(LC_ALL,"");
     Ctrl ctrl;
     ros::spin();
