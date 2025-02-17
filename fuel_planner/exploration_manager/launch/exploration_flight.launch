@@ -2,9 +2,9 @@
 
 <launch>
   <!-- size of map, change the size in x, y, z according to your application -->
-  <arg name="map_size_x" value="30.0"/>
-  <arg name="map_size_y" value="20.0"/>
-  <arg name="map_size_z" value="3.0"/>
+  <arg name="map_size_x" value="50.0"/>
+  <arg name="map_size_y" value="50.0"/>
+  <arg name="map_size_z" value="10.0"/>
 
   <arg name="flight_height" value="0.8"/>
 
@@ -22,12 +22,12 @@
     <arg name="map_size_y_" value="$(arg map_size_y)"/>
     <arg name="map_size_z_" value="$(arg map_size_z)"/>
 
-    <arg name="box_min_x" value="-7.5" type="double"/>
-    <arg name="box_min_y" value="-7.5" type="double"/>
-    <arg name="box_min_z" value="-0.2" type="double"/>
-    <arg name="box_max_x" value="7.5"  type="double"/>
-    <arg name="box_max_y" value="7.5"  type="double"/>
-    <arg name="box_max_z" value="1.5"  type="double"/>
+    <arg name="box_min_x" value="-5.0"/>
+    <arg name="box_min_y" value="-5.0"/>
+    <arg name="box_min_z" value="-0.5"/>
+    <arg name="box_max_x" value="5.0"/>
+    <arg name="box_max_y" value="5.0"/>
+    <arg name="box_max_z" value="1.5"/>
 
     <arg name="odometry_topic" value="$(arg odom_topic)"/>
     <!-- sensor pose: transform of camera frame in the world frame -->
@@ -45,7 +45,7 @@
     <arg name="fy" value="387.229248046875"/>
 
     <!-- maximum velocity and acceleration the drone will reach -->
-    <arg name="max_vel" value="0.5" />
+    <arg name="max_vel" value="0.3" />
     <arg name="max_acc" value="0.5" />
   </include>
 
