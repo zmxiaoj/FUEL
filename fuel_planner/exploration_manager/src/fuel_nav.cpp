@@ -186,8 +186,8 @@ void Ctrl::control(const ros::TimerEvent&)
             ROS_WARN("EGO_Y vel is too large");
             current_goal.velocity.y = 0.0;
         }
-        current_goal.velocity.z = (ego_pos_z - position_z) * 0.8;
-        // current_goal.position.z = flight_height;
+        // current_goal.velocity.z = (ego_pos_z - position_z) * 0.8;
+        current_goal.position.z = flight_height;
 
         // current_goal.yaw = ego_yaw;
         // current_goal.yaw = current_yaw;
