@@ -55,7 +55,7 @@ class Ctrl
         // 
         float normalizeAngle(float angle);
         float limitAngleChange(float current, float target, float max_change);
-        const float MAX_YAW_CHANGE_DEG = 20.0; // Maximum allowed yaw change per control cycle (degrees)
+        const float MAX_YAW_CHANGE_DEG = 50.0; // Maximum allowed yaw change per control cycle (degrees)
         const float MAX_YAW_CHANGE = MAX_YAW_CHANGE_DEG * M_PI / 180.0;  // Convert to radians
 
 };
