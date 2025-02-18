@@ -2,15 +2,24 @@
 
 <launch>
   <!-- size of map, change the size in x, y, z according to your application -->
-  <arg name="map_size_x" value="50.0"/>
-  <arg name="map_size_y" value="50.0"/>
-  <arg name="map_size_z" value="10.0"/>
+  <arg name="map_size_x" default="100.0"/>
+  <arg name="map_size_y" default="100.0"/>
+  <arg name="map_size_z" default="10.0"/>
 
-  <arg name="flight_height" value="0.8"/>
+  <arg name="flight_height" default="0.8"/>
 
-  <arg name="init_x" value="0"/>
-  <arg name="init_y" value="0"/>
+  <arg name="init_x" default="0"/>
+  <arg name="init_y" default="0"/>
   <arg name="init_z" value="$(arg flight_height)"/> 
+
+  <!-- Exploration box size parameters -->
+  <!-- !! box_size must smaller than map_size/2 -->
+  <arg name="box_min_x" default="-10.0"/>
+  <arg name="box_min_y" default="-10.0"/>
+  <arg name="box_min_z" default="0.3"/>
+  <arg name="box_max_x" default="30.0"/>
+  <arg name="box_max_y" default="10.0"/>
+  <arg name="box_max_z" default="2.0"/>
 
   <!-- topic of your odometry such as VIO or LIO -->
   <arg name="odom_topic" value="/mavros/local_position/odom" />
@@ -22,12 +31,12 @@
     <arg name="map_size_y_" value="$(arg map_size_y)"/>
     <arg name="map_size_z_" value="$(arg map_size_z)"/>
 
-    <arg name="box_min_x" value="-10.0"/>
-    <arg name="box_min_y" value="-10.0"/>
-    <arg name="box_min_z" value="-0.5"/>
-    <arg name="box_max_x" value="30.0"/>
-    <arg name="box_max_y" value="10.0"/>
-    <arg name="box_max_z" value="2.0"/>
+    <arg name="box_min_x" value="$(arg box_min_x)"/>
+    <arg name="box_min_y" value="$(arg box_min_y)"/>
+    <arg name="box_min_z" value="$(arg box_min_z)"/>
+    <arg name="box_max_x" value="$(arg box_max_x)"/>
+    <arg name="box_max_y" value="$(arg box_max_y)"/>
+    <arg name="box_max_z" value="$(arg box_max_z)"/>
 
     <arg name="odometry_topic" value="$(arg odom_topic)"/>
     <!-- sensor pose: transform of camera frame in the world frame -->
